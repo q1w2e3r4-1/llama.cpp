@@ -495,10 +495,13 @@ namespace console {
     bool readline(std::string & line, bool multiline_input) {
         set_display(user_input);
 
-        if (simple_io) {
-            return readline_simple(line, multiline_input);
-        }
-        return readline_advanced(line, multiline_input);
+        // q1w2e3r4 modified begin
+        // it seems readline_advanced has bug when typing Chinese, so use readline_simple instead.
+        // if (simple_io) {
+        //     return readline_simple(line, multiline_input);
+        // }
+        // return readline_advanced(line, multiline_input);
+        return readline_simple(line, multiline_input);
     }
 
 }

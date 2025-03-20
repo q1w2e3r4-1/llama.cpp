@@ -84,6 +84,18 @@ static void sigint_handler(int signo) {
 #endif
 
 int main(int argc, char ** argv) {
+    // q1w2e3r4 adds begin
+    const char* pid_str = std::getenv("PARENT_PID");
+    uint32_t parent_pid = 0;
+    if (pid_str == nullptr) {
+        std::cerr << "PARENT_PID environment variable not set, will not use signal." << std::endl;
+    }
+    else{
+        parent_pid = std::stoi(pid_str);
+        std::cerr << "get parent_pid: " << parent_pid << std::endl;
+    }
+    // q1w2e3r4 adds end
+    
     common_params params;
     g_params = &params;
     if (!common_params_parse(argc, argv, params, LLAMA_EXAMPLE_MAIN, print_usage)) {
@@ -733,7 +745,7 @@ int main(int argc, char ** argv) {
 
         // display text
         if (input_echo && display) {
-            for (auto id : embd) {
+            for (auto id : embd) { // embd_size is always 1, 怎么回事？
                 const std::string token_str = common_token_to_piece(ctx, id, params.special);
 
                 // Console/Stream Output
@@ -743,9 +755,11 @@ int main(int argc, char ** argv) {
                 // Note: Generated tokens are created one by one hence this check
                 if (embd.size() > 1) {
                     // Incoming Requested Tokens
+                    // LOG("%d", 123);
                     input_tokens.push_back(id);
                 } else {
                     // Outgoing Generated Tokens
+                    // LOG("%d", 456);
                     output_tokens.push_back(id);
                     output_ss << token_str;
                 }
@@ -814,7 +828,7 @@ int main(int argc, char ** argv) {
                     }
 
                     if (params.enable_chat_template) {
-                        chat_add_and_format("assistant", assistant_ss.str());
+                        chat_add_and_format("assistant", assistant_ss.str()); // 就是之前的那段回答
                     }
                     is_interacting = true;
                     LOG("\n");
@@ -837,6 +851,12 @@ int main(int argc, char ** argv) {
 
                 if (params.conversation_mode) {
                     LOG("\n> ");
+                    // q1w2e3r4 adds begin
+                    if(parent_pid){
+                        // when used as subprocess, send EOF(U+0004)
+                        LOG("\xef\xa3\xbf");
+                    }
+                    // q1w2e3r4 adds end
                 }
 
                 if (params.input_prefix_bos) {
@@ -864,6 +884,7 @@ int main(int argc, char ** argv) {
                 // done taking input, reset color
                 console::set_display(console::reset);
                 display = true;
+                std::cout << "get_input: " << buffer << std::endl;
 
                 // Add tokens to embd only if the input buffer is non-empty
                 // Entering a empty line lets the user pass control back
