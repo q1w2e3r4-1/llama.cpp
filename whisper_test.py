@@ -1,9 +1,67 @@
+import sys
+import whisper
 import subprocess
 import os
 import traceback
 import binascii
+import time
+
+stt_model = None
+
+# 定义保存录音文件的目录
+save_directory = '/data/data/com.termux/files/home/shared/'
+
+
+def start_recording(file_path):
+    """
+    开始录音的函数
+    :param file_path: 录音文件保存的路径
+    """
+    try:
+        # 执行 Termux 录音命令，指定保存为 WAV 格式
+        subprocess.Popen(['termux-microphone-record', '-f', file_path])
+        print("录音已开始")
+    except Exception as e:
+        print(f"开始录音时出错: {e}")
+
+
+def stop_recording():
+    """
+    停止录音的函数
+    """
+    try:
+        # 执行 Termux 停止录音命令
+        subprocess.run(['termux-microphone-record', '-q'])
+        print("录音已停止")
+    except Exception as e:
+        print(f"停止录音时出错: {e}")
+
+
+def STT(audio_file_path: str):
+    start_time = time.time()
+    print("start transcribe:")
+    result = stt_model.transcribe(audio_file_path, initial_prompt="以下是普通话的句子。")
+    print("get result:", result["text"])
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"STT 函数执行时间: {execution_time:.2f} 秒")
+    return result["text"]
+
+
+def STT_input():
+    input("按下Enter以开始录音")
+    timestamp = int(time.time())
+    file_name = f'recorded_audio_{timestamp}.wav'
+    file_path = os.path.join(save_directory, file_name)
+    start_recording(file_path)
+    input("再次按下Enter停止录音...")
+    stop_recording()
+    print(f"录音文件已保存为 {file_path}")
+    return STT(file_path)
+
 
 def get_output():
+    start_time = time.time()
     import fcntl
 
     fd = process.stdout.fileno()  # 获取文件描述符
@@ -34,11 +92,19 @@ def get_output():
             traceback.print_exc()
             break
 
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"get_output 函数执行时间: {execution_time:.2f} 秒")
+
+
 def multi_round_interaction():
     try:
         while True:
             # 获取用户输入的问题
-            input_text = input()
+            if stt_model:
+                input_text = STT_input()
+            else:
+                input_text = input()
             if input_text == "exit":
                 break
 
@@ -58,6 +124,7 @@ def multi_round_interaction():
 
     except Exception as e:
         traceback.print_exc()
+
 
 def init_llm():
     command = [
@@ -82,7 +149,15 @@ def init_llm():
     except Exception as e:
         traceback.print_exc()
 
+
+def init_stt_model():
+    # load whisper_model
+    global stt_model
+    stt_model = whisper.load_model("small")
+
+
 # 启动多轮交互
 if __name__ == '__main__':
     init_llm()
+    init_stt_model()
     multi_round_interaction()
