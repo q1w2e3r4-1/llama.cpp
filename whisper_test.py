@@ -36,6 +36,18 @@ def stop_recording():
     except Exception as e:
         print(f"停止录音时出错: {e}")
 
+def speak_out(content: str):
+    """
+    调用内置的tts引擎来将生成内容说出来，并记录执行时间
+    """
+    start_time = time.time()
+    try:
+        subprocess.run(['termux-tts-speak', content])
+    except Exception as e:
+        print(f"speak时出错: {e}")
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"speak_out 函数执行时间: {execution_time:.2f} 秒")
 
 def STT(audio_file_path: str):
     start_time = time.time()
@@ -69,6 +81,7 @@ def get_output():
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # 设置为非阻塞模式
 
     buffer = b''  # 初始化缓冲区
+    output_str = ""  # 用于记录输出内容
     while True:
         try:
             chunk = process.stdout.read(1)  # 逐字节读取
@@ -83,6 +96,7 @@ def get_output():
                 # 检查是否读取到 U+f8ff
                 if decoded == '\uf8ff':
                     break
+                output_str += decoded  # 记录输出内容
                 print(decoded, end='', flush=True)
                 buffer = b''  # 清空缓冲区
             except UnicodeDecodeError:
@@ -95,6 +109,7 @@ def get_output():
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"get_output 函数执行时间: {execution_time:.2f} 秒")
+    return output_str
 
 
 def multi_round_interaction():
@@ -116,8 +131,9 @@ def multi_round_interaction():
             process.stdin.write(input_bytes)
             process.stdin.flush()
 
-            get_output()
-
+            content = get_output()
+            speak_out(content)
+            
         # 关闭子进程
         process.stdin.close()
         process.wait()
