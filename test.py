@@ -6,7 +6,7 @@ from thirdparty.whisper_streaming.whisper_online import *
 import logging
 
 # 配置日志记录
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # 配置参数
@@ -127,16 +127,19 @@ def stream_transcription(recording_event, online):
     except Exception as e:
         logger.error(f"处理最后输出时出现错误: {e}")
 
+def init_whisper():
+    # 初始化 Whisper 模型
+    asr = FasterWhisperASR(language, "base")
+    asr.use_vad()
+    online = OnlineASRProcessor(asr)
+    return online
 
 if __name__ == "__main__":
     # 用于在主线程和子线程间共享录音状态的变量
     (pulse_input, pulse_output) = init_pyaudio()
     recording_event = threading.Event()
 
-    # 初始化 Whisper 模型
-    asr = FasterWhisperASR(language, "base")
-    asr.use_vad()
-    online = OnlineASRProcessor(asr)
+    online = init_whisper()    
 
     record_thread = None
     transcription_thread = None
