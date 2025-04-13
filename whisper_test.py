@@ -12,7 +12,7 @@ from thirdparty.whisper_streaming.MySTT import *
 stt_model = None
 speech_queue = Queue()
 
-def need_to_speak(content: str):
+def need_to_skip(content: str):
     # 这里用一个比较讨巧的手段，排除掉deepseek的<think>和输入提示符>
     content = content.strip("\n")
     return len(content) <= 10 and (content.startswith('<') or content.endswith('>'))
@@ -27,6 +27,9 @@ def speak_out(content: str):
             if content is None:
                 break
             full_content = content
+            if need_to_skip(content): 
+                continue # 排除一些无需说出的内容
+
             get_None = False
             while True:
                 try:
@@ -34,8 +37,10 @@ def speak_out(content: str):
                     if next_content is None:
                         get_None = True
                         break
-                    if need_to_speak(next_content):
-                        full_content += next_content
+                    if need_to_skip(next_content):
+                        continue
+                    
+                    full_content += next_content
                 except queue.Empty:
                     break
             if not full_content:
@@ -60,6 +65,7 @@ def STT_input():
 
 
 def get_output():
+    import fcntl
     fd = process.stdout.fileno()  # 获取文件描述符
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)  # 获取当前的文件状态标志
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # 设置为非阻塞模式
@@ -89,12 +95,13 @@ def get_output():
                 output_str += decoded  # 记录输出内容
                 speech_buffer += decoded
                 print(decoded, end='', flush=True)
+                buffer = b''  # 清空缓冲区
+
                 if decoded == '\n':
                     # 当遇到换行符时，将语音播报缓冲区内容放入队列
                     if speech_buffer:
                         speech_queue.put(speech_buffer)
-                        speech_buffer = ""
-                    buffer = b''  # 清空缓冲区
+                        speech_buffer = ""    
 
             except UnicodeDecodeError:
                 # 继续累积字节
