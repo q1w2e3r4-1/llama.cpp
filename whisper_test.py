@@ -5,9 +5,11 @@ import os
 import traceback
 import binascii
 import time
+from multiprocessing import Process, Queue
+import queue
 
 stt_model = None
-
+speech_queue = Queue()
 # 定义保存录音文件的目录
 save_directory = '/data/data/com.termux/files/home/shared/'
 
@@ -40,14 +42,36 @@ def speak_out(content: str):
     """
     调用内置的tts引擎来将生成内容说出来，并记录执行时间
     """
-    start_time = time.time()
-    try:
-        subprocess.run(['termux-tts-speak', content])
-    except Exception as e:
-        print(f"speak时出错: {e}")
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"speak_out 函数执行时间: {execution_time:.2f} 秒")
+    while True:
+        try:
+            content = speech_queue.get_nowait()
+            if content is None:
+                break
+            full_content = content
+            get_None = False
+            while True:
+                try:
+                    next_content = speech_queue.get_nowait()
+                    if next_content is None:
+                        get_None = True
+                        break
+                    full_content += next_content
+                except queue.Empty:
+                    break
+
+            start_time = time.time()
+            try:
+                subprocess.run(['termux-tts-speak', full_content])
+            except Exception as e:
+                print(f"speak时出错: {e}")
+            end_time = time.time()
+            execution_time = end_time - start_time
+            if get_None:
+                break
+            # print(f"speak_out 函数执行时间: {execution_time:.2f} 秒")
+        except queue.Empty:
+            # print("sleep")
+            time.sleep(2)  # 短暂休眠，避免 CPU 占用过高
 
 def STT(audio_file_path: str):
     start_time = time.time()
@@ -80,31 +104,52 @@ def get_output():
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)  # 获取当前的文件状态标志
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # 设置为非阻塞模式
 
+    # init_tts_process
+    speak_process = Process(target=speak_out, args=(speech_queue,))
+    speak_process.start()
     buffer = b''  # 初始化缓冲区
     output_str = ""  # 用于记录输出内容
+    speech_buffer = ""  # 语音播报缓冲区
+    BUFFER_SIZE = 10  # 语音播报缓冲区大小，可根据需要调整
     while True:
         try:
             chunk = process.stdout.read(1)  # 逐字节读取
             if not chunk:
+                # print("no read")
+                time.sleep(0.3)
                 continue
 
             buffer += chunk
             try:
                 decoded = buffer.decode('utf-8')
                 hex_buffer = binascii.hexlify(buffer).decode('ascii')
-                # print(f"Decoded successfully, buffer bytes: {hex_buffer}")
                 # 检查是否读取到 U+f8ff
                 if decoded == '\uf8ff':
                     break
                 output_str += decoded  # 记录输出内容
+                speech_buffer += decoded
                 print(decoded, end='', flush=True)
                 buffer = b''  # 清空缓冲区
+
+                # 当语音播报缓冲区内容足够多时，将内容放入队列
+                if len(speech_buffer) >= BUFFER_SIZE:
+                    speech_queue.put(speech_buffer)
+                    speech_buffer = ""
+
             except UnicodeDecodeError:
                 # 继续累积字节
                 continue
         except Exception as e:
             traceback.print_exc()
             break
+
+    # 处理剩余的语音播报缓冲区内容
+    if speech_buffer:
+        speech_queue.put(speech_buffer)
+
+    # 发送结束信号
+    speech_queue.put(None)
+    speak_process.join()
 
     end_time = time.time()
     execution_time = end_time - start_time
@@ -131,8 +176,7 @@ def multi_round_interaction():
             process.stdin.write(input_bytes)
             process.stdin.flush()
 
-            content = get_output()
-            speak_out(content)
+            get_output()
             
         # 关闭子进程
         process.stdin.close()
@@ -161,7 +205,6 @@ def init_llm():
             env={"PARENT_PID": str(os.getpid())}
         )
         get_output()
-        # print("out of here")
     except Exception as e:
         traceback.print_exc()
 
@@ -170,7 +213,6 @@ def init_stt_model():
     # load whisper_model
     global stt_model
     stt_model = whisper.load_model("small")
-
 
 # 启动多轮交互
 if __name__ == '__main__':
