@@ -1,5 +1,4 @@
 import sys
-import whisper
 import subprocess
 import os
 import traceback
@@ -7,8 +6,9 @@ import binascii
 import time
 from multiprocessing import Process, Queue
 import queue
+from thirdparty.whisper_streaming.MySTT import *
 
-stt_model = None
+stt_model = MySTTModel()
 speech_queue = Queue()
 # 定义保存录音文件的目录
 save_directory = '/data/data/com.termux/files/home/shared/'
@@ -76,12 +76,11 @@ def speak_out(content: str):
 def STT(audio_file_path: str):
     start_time = time.time()
     print("start transcribe:")
-    result = stt_model.transcribe(audio_file_path, initial_prompt="以下是普通话的句子。")
-    print("get result:", result["text"])
+    result = stt_model.record_and_transcribe()
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"STT 函数执行时间: {execution_time:.2f} 秒")
-    return result["text"]
+    return result
 
 
 def STT_input():
@@ -210,9 +209,11 @@ def init_llm():
 
 
 def init_stt_model():
+    # has put code in global area
     # load whisper_model
-    global stt_model
-    stt_model = whisper.load_model("small")
+    # global stt_model
+    # stt_model = whisper.load_model("small")
+    pass
 
 # 启动多轮交互
 if __name__ == '__main__':

@@ -2,10 +2,12 @@ import pyaudio
 import wave
 import time
 import threading
-from whisper_online import *
+from .whisper_online import *
 import logging
 import numpy as np
+import warnings
 
+warnings.filterwarnings("ignore", category=UserWarning)
 
 class MySTTModel:
     def __init__(self):
