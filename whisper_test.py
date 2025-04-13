@@ -8,35 +8,14 @@ from multiprocessing import Process, Queue
 import queue
 from thirdparty.whisper_streaming.MySTT import *
 
-stt_model = MySTTModel()
+# stt_model = MySTTModel()
+stt_model = None
 speech_queue = Queue()
-# 定义保存录音文件的目录
-save_directory = '/data/data/com.termux/files/home/shared/'
 
-
-def start_recording(file_path):
-    """
-    开始录音的函数
-    :param file_path: 录音文件保存的路径
-    """
-    try:
-        # 执行 Termux 录音命令，指定保存为 WAV 格式
-        subprocess.Popen(['termux-microphone-record', '-f', file_path])
-        print("录音已开始")
-    except Exception as e:
-        print(f"开始录音时出错: {e}")
-
-
-def stop_recording():
-    """
-    停止录音的函数
-    """
-    try:
-        # 执行 Termux 停止录音命令
-        subprocess.run(['termux-microphone-record', '-q'])
-        print("录音已停止")
-    except Exception as e:
-        print(f"停止录音时出错: {e}")
+def need_to_speak(content: str):
+    # 这里用一个比较讨巧的手段，排除掉deepseek的<think>和输入提示符>
+    content = content.strip("\n")
+    return len(content) <= 10 and (content.startswith('<') or content.endswith('>'))
 
 def speak_out(content: str):
     """
@@ -55,13 +34,16 @@ def speak_out(content: str):
                     if next_content is None:
                         get_None = True
                         break
-                    full_content += next_content
+                    if need_to_speak(next_content):
+                        full_content += next_content
                 except queue.Empty:
                     break
-
+            if not full_content:
+                continue
+            
             start_time = time.time()
             try:
-                subprocess.run(['termux-tts-speak', full_content])
+                subprocess.run(['termux-tts-speak', "-r", "1.5", full_content])
             except Exception as e:
                 print(f"speak时出错: {e}")
             end_time = time.time()
@@ -74,20 +56,10 @@ def speak_out(content: str):
             time.sleep(2)  # 短暂休眠，避免 CPU 占用过高
 
 def STT_input():
-    start_time = time.time()
-    print("start transcribe:")
-    result = stt_model.record_and_transcribe()
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"STT 函数执行时间: {execution_time:.2f} 秒")
-    print("get input:", result)
-    return result
+    return stt_model.record_and_transcribe()
 
 
 def get_output():
-    start_time = time.time()
-    import fcntl
-
     fd = process.stdout.fileno()  # 获取文件描述符
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)  # 获取当前的文件状态标志
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # 设置为非阻塞模式
@@ -98,7 +70,7 @@ def get_output():
     buffer = b''  # 初始化缓冲区
     output_str = ""  # 用于记录输出内容
     speech_buffer = ""  # 语音播报缓冲区
-    BUFFER_SIZE = 10  # 语音播报缓冲区大小，可根据需要调整
+
     while True:
         try:
             chunk = process.stdout.read(1)  # 逐字节读取
@@ -117,12 +89,12 @@ def get_output():
                 output_str += decoded  # 记录输出内容
                 speech_buffer += decoded
                 print(decoded, end='', flush=True)
-                buffer = b''  # 清空缓冲区
-
-                # 当语音播报缓冲区内容足够多时，将内容放入队列
-                if len(speech_buffer) >= BUFFER_SIZE:
-                    speech_queue.put(speech_buffer)
-                    speech_buffer = ""
+                if decoded == '\n':
+                    # 当遇到换行符时，将语音播报缓冲区内容放入队列
+                    if speech_buffer:
+                        speech_queue.put(speech_buffer)
+                        speech_buffer = ""
+                    buffer = b''  # 清空缓冲区
 
             except UnicodeDecodeError:
                 # 继续累积字节
@@ -139,9 +111,6 @@ def get_output():
     speech_queue.put(None)
     speak_process.join()
 
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print(f"get_output 函数执行时间: {execution_time:.2f} 秒")
     return output_str
 
 
