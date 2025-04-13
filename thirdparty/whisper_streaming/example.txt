@@ -1,0 +1,1 @@
+python whisper_online.py test2.wav --model small --language zh --min-chunk-size 1 --backend faster-whisper --vac --vad -l INFO
