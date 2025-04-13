@@ -73,26 +73,15 @@ def speak_out(content: str):
             # print("sleep")
             time.sleep(2)  # 短暂休眠，避免 CPU 占用过高
 
-def STT(audio_file_path: str):
+def STT_input():
     start_time = time.time()
     print("start transcribe:")
     result = stt_model.record_and_transcribe()
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"STT 函数执行时间: {execution_time:.2f} 秒")
+    print("get input:", result)
     return result
-
-
-def STT_input():
-    input("按下Enter以开始录音")
-    timestamp = int(time.time())
-    file_name = f'recorded_audio_{timestamp}.wav'
-    file_path = os.path.join(save_directory, file_name)
-    start_recording(file_path)
-    input("再次按下Enter停止录音...")
-    stop_recording()
-    print(f"录音文件已保存为 {file_path}")
-    return STT(file_path)
 
 
 def get_output():
