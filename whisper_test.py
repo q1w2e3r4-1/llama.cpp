@@ -1,37 +1,36 @@
-import sys
-import subprocess
-import os
 import traceback
 import binascii
-import time
-from multiprocessing import Process, Queue
+import threading
 import queue
+import time
+import subprocess
+import os
+
 from thirdparty.whisper_streaming.MySTT import *
 from thirdparty.Edge_TTS.Edge_TTS import *
 
 # stt_model = MySTTModel()
 stt_model = None
 tts_model = Edge_TTS()
-speech_queue = Queue()
+speech_queue = queue.Queue()
 
 def need_to_skip(content: str):
     # 这里用一个比较讨巧的手段，排除掉deepseek的<think>和输入提示符>
     content = content.strip("\n")
     return len(content) <= 10 and (content.startswith('<') or content.endswith('>'))
 
-def speak_out(content: str):
+def speak_out():
     """
     调用内置的tts引擎来将生成内容说出来，并记录执行时间
     """
-
     tts_model.start_playback()
     while True:
         try:
             content = speech_queue.get_nowait()
             if content is None:
                 break
-            if need_to_skip(content): 
-                continue # 排除一些无需说出的内容
+            if need_to_skip(content):
+                continue  # 排除一些无需说出的内容
             print("speak out", content)
             tts_model.generate_and_read_audio(content)
         except queue.Empty:
@@ -49,8 +48,8 @@ def get_output():
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # 设置为非阻塞模式
 
     # init_tts_process
-    speak_process = Process(target=speak_out, args=(speech_queue,))
-    speak_process.start()
+    speak_thread = threading.Thread(target=speak_out)
+    speak_thread.start()
     buffer = b''  # 初始化缓冲区
     output_str = ""  # 用于记录输出内容
     speech_buffer = ""  # 语音播报缓冲区
@@ -79,7 +78,7 @@ def get_output():
                     # 当遇到换行符时，将语音播报缓冲区内容放入队列
                     if speech_buffer:
                         speech_queue.put(speech_buffer)
-                        speech_buffer = ""    
+                        speech_buffer = ""
 
             except UnicodeDecodeError:
                 # 继续累积字节
@@ -94,7 +93,7 @@ def get_output():
 
     # 发送结束信号
     speech_queue.put(None)
-    speak_process.join()
+    speak_thread.join()
 
     return output_str
 
@@ -119,7 +118,7 @@ def multi_round_interaction():
             process.stdin.flush()
 
             get_output()
-            
+
         # 关闭子进程
         process.stdin.close()
         process.wait()
@@ -132,7 +131,7 @@ def init_llm():
     command = [
         "./build/bin/llama-cli",  # llama-cli 可执行文件的路径
         "-m", "DeepSeek-R1-Distill-Qwen-1.5B/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",  # 模型文件路径
-        "-t", "4", # 经测试，4线程表现最好，8线程效果甚至不如单线程。
+        "-t", "4",  # 经测试，4线程表现最好，8线程效果甚至不如单线程。
         "-cnv"  # interactive
     ]
     try:

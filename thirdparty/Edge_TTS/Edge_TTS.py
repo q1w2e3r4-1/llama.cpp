@@ -1,4 +1,3 @@
-import asyncio
 import os
 import pyaudio
 from pydub import AudioSegment
@@ -18,8 +17,8 @@ class Edge_TTS:
         pulse_input = None
         pulse_output = None
 
-        for i in range(self.audio_instance.get_device_count()):
-            dev = self.audio_instance.get_device_info_by_index(i)
+        for i in range(self.p.get_device_count()):
+            dev = self.p.get_device_info_by_index(i)
             if "pulse" in dev["name"].lower():
                 if dev["maxInputChannels"] > 0:
                     pulse_input = dev["index"]
@@ -29,12 +28,12 @@ class Edge_TTS:
         # 检查是否找到 PulseAudio 设备
         if pulse_input is None:
             print("未找到支持输入的 PulseAudio 设备，无法进行录音。")
-            self.audio_instance.terminate()
+            self.p.terminate()
             exit(1)
 
         if pulse_output is None:
             print("未找到支持输出的 PulseAudio 设备，无法进行播放。")
-            self.audio_instance.terminate()
+            self.p.terminate()
             exit(1)
 
         self.pulse_input = pulse_input
