@@ -9,8 +9,8 @@ import os
 from thirdparty.whisper_streaming.MySTT import *
 from thirdparty.Edge_TTS.Edge_TTS import *
 
-# stt_model = MySTTModel()
-stt_model = None
+stt_model = MySTTModel()
+# stt_model = None
 tts_model = Edge_TTS()
 speech_queue = queue.Queue()
 
@@ -33,7 +33,6 @@ def speak_out():
             content = content.strip("\n").strip()
             if need_to_skip(content):
                 continue  # 排除一些无需说出的内容
-            print("speak out", content)
             tts_model.generate_and_read_audio(content)
         except queue.Empty:
             time.sleep(0.3)  # 短暂休眠，避免 CPU 占用过高
