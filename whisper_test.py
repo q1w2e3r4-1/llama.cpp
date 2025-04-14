@@ -32,9 +32,10 @@ def speak_out(content: str):
                 break
             if need_to_skip(content): 
                 continue # 排除一些无需说出的内容
+            print("speak out", content)
             tts_model.generate_and_read_audio(content)
         except queue.Empty:
-            time.sleep(1)  # 短暂休眠，避免 CPU 占用过高
+            time.sleep(0.3)  # 短暂休眠，避免 CPU 占用过高
     tts_model.stop_playback()
 
 def STT_input():

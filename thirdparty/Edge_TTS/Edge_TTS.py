@@ -14,12 +14,40 @@ class Edge_TTS:
         self.audio_queue = queue.Queue()
         self.play_thread = None
 
+        # 查找 PulseAudio 设备索引
+        pulse_input = None
+        pulse_output = None
+
+        for i in range(self.audio_instance.get_device_count()):
+            dev = self.audio_instance.get_device_info_by_index(i)
+            if "pulse" in dev["name"].lower():
+                if dev["maxInputChannels"] > 0:
+                    pulse_input = dev["index"]
+                if dev["maxOutputChannels"] > 0:
+                    pulse_output = dev["index"]
+
+        # 检查是否找到 PulseAudio 设备
+        if pulse_input is None:
+            print("未找到支持输入的 PulseAudio 设备，无法进行录音。")
+            self.audio_instance.terminate()
+            exit(1)
+
+        if pulse_output is None:
+            print("未找到支持输出的 PulseAudio 设备，无法进行播放。")
+            self.audio_instance.terminate()
+            exit(1)
+
+        self.pulse_input = pulse_input
+        self.pulse_output = pulse_output
+
     def start_playback(self):
         """开启放音，用pyaudio创建一个输出stream并启动播放线程"""
         self.stream = self.p.open(format=pyaudio.paInt16,
                                   channels=1,
                                   rate=24000,
-                                  output=True)
+                                  output=True,
+                                  output_device_index=self.pulse_output
+                                  )
         self.play_thread = threading.Thread(target=self.play_audio)
         self.play_thread.start()
 
