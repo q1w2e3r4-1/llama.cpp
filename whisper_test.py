@@ -89,6 +89,7 @@ def multi_round_interaction():
             if stt_model:
                 input_text = STT_input()
             else:
+                print("> ", end="")
                 input_text = input()
             if input_text == "exit":
                 break
