@@ -7,9 +7,11 @@ import time
 from multiprocessing import Process, Queue
 import queue
 from thirdparty.whisper_streaming.MySTT import *
+from thirdparty.Edge_TTS.Edge_TTS import *
 
 # stt_model = MySTTModel()
 stt_model = None
+tts_model = Edge_TTS()
 speech_queue = Queue()
 
 def need_to_skip(content: str):
@@ -21,44 +23,19 @@ def speak_out(content: str):
     """
     调用内置的tts引擎来将生成内容说出来，并记录执行时间
     """
+
+    tts_model.start_playback()
     while True:
         try:
             content = speech_queue.get_nowait()
             if content is None:
                 break
-            full_content = content
             if need_to_skip(content): 
                 continue # 排除一些无需说出的内容
-
-            get_None = False
-            while True:
-                try:
-                    next_content = speech_queue.get_nowait()
-                    if next_content is None:
-                        get_None = True
-                        break
-                    if need_to_skip(next_content):
-                        continue
-                    
-                    full_content += next_content
-                except queue.Empty:
-                    break
-            if not full_content:
-                continue
-            
-            start_time = time.time()
-            try:
-                subprocess.run(['termux-tts-speak', "-r", "1.5", full_content])
-            except Exception as e:
-                print(f"speak时出错: {e}")
-            end_time = time.time()
-            execution_time = end_time - start_time
-            if get_None:
-                break
-            # print(f"speak_out 函数执行时间: {execution_time:.2f} 秒")
+            tts_model.generate_and_read_audio(content)
         except queue.Empty:
-            # print("sleep")
-            time.sleep(2)  # 短暂休眠，避免 CPU 占用过高
+            time.sleep(1)  # 短暂休眠，避免 CPU 占用过高
+    tts_model.stop_playback()
 
 def STT_input():
     return stt_model.record_and_transcribe()
