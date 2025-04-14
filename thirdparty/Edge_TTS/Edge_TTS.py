@@ -45,7 +45,8 @@ class Edge_TTS:
                                   channels=1,
                                   rate=24000,
                                   output=True,
-                                  output_device_index=self.pulse_output
+                                  output_device_index=self.pulse_output,
+                                  frames_per_buffer = 2048,
                                   )
         self.play_thread = threading.Thread(target=self.play_audio)
         self.play_thread.start()

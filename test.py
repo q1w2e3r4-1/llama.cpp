@@ -139,7 +139,7 @@ if __name__ == "__main__":
     (pulse_input, pulse_output) = init_pyaudio()
     recording_event = threading.Event()
 
-    online = init_whisper()    
+    online = init_whisper()
 
     record_thread = None
     transcription_thread = None

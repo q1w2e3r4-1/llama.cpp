@@ -16,7 +16,8 @@ speech_queue = queue.Queue()
 
 def need_to_skip(content: str):
     # 这里用一个比较讨巧的手段，排除掉deepseek的<think>和输入提示符>
-    content = content.strip("\n")
+    if not content: # 自动过滤空串 
+        return True
     return len(content) <= 10 and (content.startswith('<') or content.endswith('>'))
 
 def speak_out():
@@ -29,6 +30,7 @@ def speak_out():
             content = speech_queue.get_nowait()
             if content is None:
                 break
+            content = content.strip("\n").strip()
             if need_to_skip(content):
                 continue  # 排除一些无需说出的内容
             print("speak out", content)
