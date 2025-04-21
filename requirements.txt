@@ -12,4 +12,4 @@
 -r ./requirements/requirements-convert_lora_to_gguf.txt
 -r ./requirements/requirements-tool_bench.txt
 
--r ./requirements/requirements-3rdparty.txt
+-r ./requirements/requirements-whisper_streaming.txt
